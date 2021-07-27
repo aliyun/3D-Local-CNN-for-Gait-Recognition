@@ -1,0 +1,24 @@
+work_dir: ./exps/GaitPart_CASIA
+solver: BaselineSolver
+
+num_iter: 120000
+log_interval: 100
+save_interval: 1000
+test_interval: 1000
+
+# data
+dataset: FastCASIA
+dataset_args:
+    batch_size: [8, 16]
+    num_workers: 4
+
+# model
+model: GaitPartC
+
+# loss
+loss: FullTripletLoss
+
+# optim
+optimizer: Adam
+lr_decay:
+    base: 0.0001

@@ -1,0 +1,26 @@
+work_dir: ./exps/GaitPart_OUMVLP
+solver: BaselineSolver
+
+num_iter: 250000
+log_interval: 100
+save_interval: 10000
+test_interval: 10000
+
+# data
+dataset: FastOUMVLP
+dataset_args:
+    batch_size: [32, 16]
+    num_workers: 16
+
+# model
+model: GaitPartO
+
+# loss
+loss: FullTripletLoss
+
+# optim
+optimizer: Adam
+lr_decay:
+    base: 0.0001
+    policy: Step
+    stepsize: 100000

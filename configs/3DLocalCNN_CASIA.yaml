@@ -1,0 +1,24 @@
+work_dir: ./exps/LocalCNN3D_CASIA
+solver: BaselineSolver
+
+num_iter: 80000
+log_interval: 100
+save_interval: 1000
+test_interval: 1000
+
+# data
+dataset: CASIA
+dataset_args:
+    batch_size: [8, 16]
+    num_workers: 3
+
+# model
+model: LocalCNN3D
+
+# loss
+loss: FullTripletLoss
+
+# optim
+optimizer: Adam
+lr_decay:
+    base: 0.0001
