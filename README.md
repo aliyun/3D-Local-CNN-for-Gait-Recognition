@@ -24,7 +24,6 @@ local operations as submodules of existing convolutional building blocks.
  Download CASAI raw data to data/CASIA_raw and run `python preprocess.py`
 
 #### Demo
-```
 (1) basic run, for all gpus
 ```
 python main.py --config=configs/3DLocalCNN_CASIA.yaml
@@ -45,3 +44,18 @@ python main.py --seed=1234 --config=configs/3DLocalCNN_CASIA.yaml --name=sgd
 
 (end) for nohup run, see  nohup_run.sh.example
 
+### License
++ Apache License 2.0
+
+
+### Citation
+If you use our code or models in your research, please cite with:
+```
+@inproceedings{huang2021revisiting,
+  title={Revisiting Knowledge Distillation: An Inheritance and Exploration Framework},
+  author={Huang, Zhen and Shen, Xu and Xing, Jun and Liu, Tongliang and Tian, Xinmei and Li, Houqiang and Deng, Bing and Huang, Jianqiang and Hua, Xian-Sheng},
+  booktitle={CVPR},
+  pages={3579--3588},
+  year={2021}
+}
+```
