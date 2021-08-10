@@ -5,6 +5,7 @@ from collections import defaultdict
 
 __all__ = ['AverageMeter']
 
+
 def mean_ap(distmat, labels, infos=None, indices=None, strict=False):
     # TODO Matrix version
     if indices is None:
@@ -12,7 +13,7 @@ def mean_ap(distmat, labels, infos=None, indices=None, strict=False):
     labels = torch.tensor(labels).type_as(distmat)
     matches = (labels[indices] == labels[:, None])
     if strict:
-        infos = infos.t() # [num, 5] -> [5, num]
+        infos = infos.t()  # [num, 5] -> [5, num]
 
     aps = []
     num = len(distmat)
@@ -33,7 +34,8 @@ def mean_ap(distmat, labels, infos=None, indices=None, strict=False):
         raise RuntimeError("No valid query")
     return sum(aps) / len(aps)
 
-def cmc(distmat, labels, infos=None, topk=(1,), indices=None, strict=False):
+
+def cmc(distmat, labels, infos=None, topk=(1, ), indices=None, strict=False):
     """ Caculate CMC Scores
         ----
         strict: Mask out the confusing samples
@@ -44,7 +46,7 @@ def cmc(distmat, labels, infos=None, topk=(1,), indices=None, strict=False):
     labels = torch.tensor(labels).type_as(distmat)
     matches = (labels[indices] == labels[:, None])
     if strict:
-        infos = infos.t() # [num, 5] -> [5, num]
+        infos = infos.t()  # [num, 5] -> [5, num]
 
     m = defaultdict(lambda: 0)
     num = len(distmat)
@@ -63,6 +65,7 @@ def cmc(distmat, labels, infos=None, topk=(1,), indices=None, strict=False):
                 m[k] += 1
     return tuple([m[i] / num for i in topk])
 
+
 def pairwise_distance(features):
     n = len(features)
     x = torch.cat(features)
@@ -70,6 +73,7 @@ def pairwise_distance(features):
     dist = torch.pow(x, 2).sum(dim=1, keepdim=True) * 2
     dist = dist.expand(n, n) - 2 * torch.mm(x, x.t())
     return dist.cpu()
+
 
 class AverageMeter(object):
     """
@@ -93,7 +97,8 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-def accuracy(output, target, topk=(1,)):
+
+def accuracy(output, target, topk=(1, )):
     maxk = max(topk)
     batch_size = target.size(0)
 

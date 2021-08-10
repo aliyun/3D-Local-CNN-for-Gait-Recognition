@@ -25,8 +25,15 @@ from utils import import_class, LearningRate, init_seed
 
 
 class Solver():
-    """ Base class for all processors """
+    """ basic solver for gait recognition
 
+    Methods
+    -------
+    start: start a specified mode function based on `cfg.mode`
+    train: mode for train & test
+    test: mode for one-time test，start this mode when testing existing models
+    debug: mode for debug, start this mode when early debugging
+    """
     def __init__(self, cfg):
         self.cfg = cfg
         self.work_dir = self.cfg.work_dir
@@ -37,8 +44,8 @@ class Solver():
             dist.init_process_group(backend=dist_backend)
         cfg.seed = init_seed(cfg.seed)
 
-
     def start(self):
+        '''start a specified mode function based on `cfg.mode`'''
         # Work Flow
         try:
             mode = getattr(self, self.cfg.mode)
@@ -48,19 +55,22 @@ class Solver():
         return mode()
 
     def train(self):
+        ''' mode for train & test '''
         raise NotImplementedError
 
     def test(self):
+        ''' model for one-time test，start this mode when testing existing model '''
         raise NotImplementedError
 
     def debug(self):
+        ''' debug: mode for debug, start this mode when early debugging '''
         raise NotImplementedError
-
 
     def build_data(self):
         dataset_class = '.'.join(['datasets', self.cfg.dataset])
         dataset_class = import_class(dataset_class)
-        self.trainloader, self.testloader = dataset_class(**self.cfg.dataset_args)
+        self.trainloader, self.testloader = dataset_class(
+            **self.cfg.dataset_args)
 
     def _build_one_model(self, model_name, args):
         model_class = '.'.join(['models', model_name])
@@ -82,27 +92,38 @@ class Solver():
         return loss_class(**args).cuda()
 
     def build_loss(self):
+        ''' Build loss based on `cfg.loss` and `cfg.loss_args`
+        `cfg.loss` is the registered name of speicified loss
+        `cfg.loss_args` is the arguments of the loss
+        '''
         self.loss = self._build_one_loss(self.cfg.loss, self.cfg.loss_args)
 
     def _build_sgd(self, *models, nesterov=None, weight_decay=None):
+        ''' Build SGD Optimizer for model '''
         if nesterov is None:
             nesterov = self.cfg.nesterov
         if weight_decay is None:
             weight_decay = self.cfg.weight_decay
-        return optim.SGD([{'params': m.parameters()} for m in models],
+        return optim.SGD([{
+            'params': m.parameters()
+        } for m in models],
                          lr=0.1,
                          momentum=0.9,
                          nesterov=nesterov,
                          weight_decay=weight_decay)
 
     def _build_adam(self, *models, betas=None):
+        ''' Build Adam Optimizer for model '''
         if betas is None:
             betas = self.cfg.betas
-        return optim.Adam([{'params': m.parameters()} for m in models],
+        return optim.Adam([{
+            'params': m.parameters()
+        } for m in models],
                           lr=0.001,
                           betas=betas)
 
     def build_optimizer(self):
+        ''' Build optimizer and lr_scheduler based on `cfg.optimizer` '''
         if self.cfg.optimizer == 'SGD':
             self.optimizer = self._build_sgd(self.model)
 
@@ -112,7 +133,6 @@ class Solver():
         else:
             raise ValueError()
         self.lr_scheduler = LearningRate(self.optimizer, **self.cfg.lr_decay)
-
 
     def print_log(self, str, print_time=True):
         if print_time:
@@ -129,16 +149,29 @@ class Solver():
     def print(self, str):
         return self.print_log(str, print_time=False)
 
-
     def load(self):
         if self.cfg.auto_resume:
+            ''' automatically resume training process from the latest checkpoints'''
             self.iter = self.auto_resume()
         elif self.cfg.resume:
+            ''' resume training from given checkpoint '''
             self.iter = self.load_checkpoint(self.cfg.resume, optim=True)
         elif self.cfg.pretrained:
+            ''' load pretrained weights '''
             self.load_checkpoint(self.cfg.pretrained, optim=False)
 
-    def load_checkpoint(self, filename, optim=True):
+    def load_checkpoint(self, filename: str, optim: bool = True) -> int:
+        '''load checkpoints from given weight file
+
+        Parameters
+        ----------
+        filename: path of the given checkpoint file
+        optim: whether load corresponding gradients (default: True)
+
+        Returns
+        -------
+        iter: iteration or epoch of the checkpoint
+        '''
         state = torch.load(filename)
         iter = state['iteration']
         self.model.module.load_state_dict(state['model'])
@@ -149,7 +182,6 @@ class Solver():
             self.print_log('Load only weights from {}'.format(filename))
         return iter
 
-
     def save(self):
         if (not self.cfg.mgpu) or (self.cfg.local_rank == 0):
             is_interval = (self.iter % self.cfg.save_interval == 0)
@@ -158,7 +190,8 @@ class Solver():
                 ckpt_dir = os.path.join(self.work_dir, 'ckpt')
                 if not os.path.exists(ckpt_dir):
                     os.mkdir(ckpt_dir)
-                filename = self.cfg.save_name + '-' + str(self.iter) + '.pth.tar'
+                filename = self.cfg.save_name + '-' + str(
+                    self.iter) + '.pth.tar'
                 ckpt_path = os.path.join(ckpt_dir, filename)
                 return self.save_checkpoint(ckpt_path)
         return False
@@ -173,7 +206,6 @@ class Solver():
         self.print_log('Save checkpoint to {}'.format(filename))
         return self.iter
 
-
     def auto_resume(self):
         ckpt_dir = os.path.join(self.work_dir, 'ckpt')
         if os.path.exists(ckpt_dir):
@@ -181,6 +213,7 @@ class Solver():
             max_iter = -1
             resume_file = None
             for ckpt in ckpts:
+                ### automatically find the latest checkpoint
                 iter = float(ckpt.split('-')[1].split('.')[0])
                 if iter > max_iter:
                     max_iter = iter
@@ -191,8 +224,8 @@ class Solver():
                     self.print_log('Auto resume from {}'.format(resume_file))
                     return self.load_checkpoint(resume_file, optim=True)
 
-
     def _convert_time(self, t):
+        ''' convert time (seconds) to days/hours/minutes/seconds'''
         assert t > 0, 'Input must > 0, but got {}'.format(t)
         t = int(t)
         str = ''

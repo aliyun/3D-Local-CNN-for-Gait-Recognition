@@ -6,19 +6,27 @@ import torch.nn.functional as F
 
 __all__ = ['GaitPartC', 'GaitPartO']
 
+
 class BasicConv2d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, **kwargs):
         super(BasicConv2d, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, bias=False, **kwargs)
+        self.conv = nn.Conv2d(in_channels,
+                              out_channels,
+                              kernel_size,
+                              bias=False,
+                              **kwargs)
 
     def forward(self, x):
         x = self.conv(x)
         return F.leaky_relu(x, inplace=True)
 
+
 class FConv(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, padding, p=1):
         super().__init__()
-        self.conv = BasicConv2d(in_channels, out_channels, kernel_size,
+        self.conv = BasicConv2d(in_channels,
+                                out_channels,
+                                kernel_size,
                                 padding=padding)
         self.p = p
 
@@ -32,7 +40,6 @@ class FConv(nn.Module):
 
 
 class FPFE_C(nn.Module):
-
     def __init__(self):
         super().__init__()
 
@@ -58,8 +65,8 @@ class FPFE_C(nn.Module):
         out = out.view(N, T, outC, outH, outW)
         return out
 
-class FPFE_O(nn.Module):
 
+class FPFE_O(nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -112,11 +119,15 @@ class MTB1(nn.Module):
         hidden_channels = channels // squeeze_ratio
         self.conv1 = nn.Conv1d(channels * num_part,
                                hidden_channels * num_part,
-                               kernel_size=3, padding=1, groups=num_part)
+                               kernel_size=3,
+                               padding=1,
+                               groups=num_part)
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv1d(hidden_channels * num_part,
                                channels * num_part,
-                               kernel_size=1, padding=0, groups=num_part)
+                               kernel_size=1,
+                               padding=0,
+                               groups=num_part)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
@@ -126,6 +137,7 @@ class MTB1(nn.Module):
         attention = self.sigmoid(self.conv2(self.relu(self.conv1(x))))
         out = Sm * attention
         return out
+
 
 class MTB2(nn.Module):
     def __init__(self, channels=128, num_part=16, squeeze_ratio=4):
@@ -137,11 +149,15 @@ class MTB2(nn.Module):
         hidden_channels = channels // squeeze_ratio
         self.conv1 = nn.Conv1d(channels * num_part,
                                hidden_channels * num_part,
-                               kernel_size=3, padding=1, groups=num_part)
+                               kernel_size=3,
+                               padding=1,
+                               groups=num_part)
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv1d(hidden_channels * num_part,
                                channels * num_part,
-                               kernel_size=3, padding=1, groups=num_part)
+                               kernel_size=3,
+                               padding=1,
+                               groups=num_part)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
@@ -161,7 +177,7 @@ class MCM(nn.Module):
 
     def forward(self, x):
         N, T, C, M = x.size()
-        out = x.permute(0, 3, 2, 1).contiguous().view(N, M*C, T)
+        out = x.permute(0, 3, 2, 1).contiguous().view(N, M * C, T)
         out = self.layer1(out) + self.layer2(out)
         out = out.max(2)[0]
         return out.view(N, M, C)
@@ -170,12 +186,16 @@ class MCM(nn.Module):
 class SeparateFc(nn.Module):
     def __init__(self, num_bin, in_dim, out_dim):
         super().__init__()
-        self.fc = nn.Conv2d(num_bin * in_dim, num_bin * out_dim, kernel_size=1,
-                            groups=num_bin, padding=0, bias=False)
+        self.fc = nn.Conv2d(num_bin * in_dim,
+                            num_bin * out_dim,
+                            kernel_size=1,
+                            groups=num_bin,
+                            padding=0,
+                            bias=False)
 
     def forward(self, x):
         N, M, C = x.size()
-        out = x.view(N, M*C, 1, 1)
+        out = x.view(N, M * C, 1, 1)
         out = self.fc(out)
         return out.view(N, M, -1)
 
