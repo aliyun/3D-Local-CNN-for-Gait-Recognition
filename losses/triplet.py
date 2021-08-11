@@ -55,8 +55,8 @@ class FullTripletLoss(nn.Module):
 
         M, N, C = feature.size()
         # [M, N, N]
-        hp_mask = (label.unsqueeze(1) == label.unsqueeze(2)).byte().view(-1)
-        hn_mask = (label.unsqueeze(1) != label.unsqueeze(2)).byte().view(-1)
+        hp_mask = (label.unsqueeze(1) == label.unsqueeze(2)).bool().view(-1)
+        hn_mask = (label.unsqueeze(1) != label.unsqueeze(2)).bool().view(-1)
 
         # [M, N, N]
         dist = self.batch_dist(feature)
@@ -65,7 +65,8 @@ class FullTripletLoss(nn.Module):
         # non-zero full
         full_hp_dist = torch.masked_select(dist, hp_mask).view(M, N, -1, 1)
         full_hn_dist = torch.masked_select(dist, hn_mask).view(M, N, 1, -1)
-        full_loss_metric = F.relu(self.margin + full_hp_dist - full_hn_dist).view(M, -1)
+        full_loss_metric = F.relu(self.margin + full_hp_dist -
+                                  full_hn_dist).view(M, -1)
 
         full_loss_metric_sum = full_loss_metric.sum(1)
         full_loss_num = (full_loss_metric != 0).sum(1).float()
@@ -73,11 +74,13 @@ class FullTripletLoss(nn.Module):
         full_loss_metric_mean = full_loss_metric_sum / full_loss_num
         full_loss_metric_mean[full_loss_num == 0] = 0
 
-        return full_loss_metric_mean.mean(), full_loss_num.mean()/full_loss_metric.numel()
+        return full_loss_metric_mean.mean(
+        ), full_loss_num.mean() / full_loss_metric.numel()
 
     def batch_dist(self, x):
-        x2 = torch.sum(x ** 2, 2)
-        dist = x2.unsqueeze(2) + x2.unsqueeze(2).transpose(1, 2) - 2 * torch.matmul(x, x.transpose(1, 2))
+        x2 = torch.sum(x**2, 2)
+        dist = x2.unsqueeze(2) + x2.unsqueeze(2).transpose(
+            1, 2) - 2 * torch.matmul(x, x.transpose(1, 2))
         dist = torch.sqrt(F.relu(dist))
         return dist
 
@@ -93,22 +96,26 @@ class HardTripletLoss(nn.Module):
 
         # feature: [n, m, d], label: [n, m]
         n, m, d = feature.size()
-        hp_mask = (label.unsqueeze(1) == label.unsqueeze(2)).byte().view(-1)
-        hn_mask = (label.unsqueeze(1) != label.unsqueeze(2)).byte().view(-1)
+        hp_mask = (label.unsqueeze(1) == label.unsqueeze(2)).bool().view(-1)
+        hn_mask = (label.unsqueeze(1) != label.unsqueeze(2)).bool().view(-1)
 
         dist = self.batch_dist(feature)
         mean_dist = dist.mean(1).mean(1)
         dist = dist.view(-1)
         # hard
-        hard_hp_dist = torch.max(torch.masked_select(dist, hp_mask).view(n, m, -1), 2)[0]
-        hard_hn_dist = torch.min(torch.masked_select(dist, hn_mask).view(n, m, -1), 2)[0]
-        hard_loss_metric = F.relu(self.margin + hard_hp_dist - hard_hn_dist).view(n, -1)
+        hard_hp_dist = torch.max(
+            torch.masked_select(dist, hp_mask).view(n, m, -1), 2)[0]
+        hard_hn_dist = torch.min(
+            torch.masked_select(dist, hn_mask).view(n, m, -1), 2)[0]
+        hard_loss_metric = F.relu(self.margin + hard_hp_dist -
+                                  hard_hn_dist).view(n, -1)
 
         # hard_loss_metric_mean = torch.mean(hard_loss_metric, 1)
         return hard_loss_metric.mean()
 
     def batch_dist(self, x):
-        x2 = torch.sum(x ** 2, 2)
-        dist = x2.unsqueeze(2) + x2.unsqueeze(2).transpose(1, 2) - 2 * torch.matmul(x, x.transpose(1, 2))
+        x2 = torch.sum(x**2, 2)
+        dist = x2.unsqueeze(2) + x2.unsqueeze(2).transpose(
+            1, 2) - 2 * torch.matmul(x, x.transpose(1, 2))
         dist = torch.sqrt(F.relu(dist))
         return dist

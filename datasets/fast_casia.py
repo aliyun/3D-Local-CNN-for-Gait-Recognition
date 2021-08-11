@@ -81,6 +81,10 @@ def _CASIA_OUMVLP(batch_size=[8, 16],
     seq_type:
         list of every sequence's condition.
 
+    Returns
+    -------
+    train_loader and test_loader
+
     """
     train_list_path = osp.join(
         list_path, '{}_{}_train_list_seq.npy'.format(pid_num, pid_shuffle))
@@ -102,7 +106,7 @@ def _CASIA_OUMVLP(batch_size=[8, 16],
         label = list()
         for _label in sorted(list(os.listdir(dataset_path))):
             # In CASIA-B, data of subject #5 is incomplete.
-            # Thus, we ignore it in training.
+            # Following GaitSet and GaitPart, we ignore it in training.
             if 'CASIA' in dataset_path and _label == '005':
                 continue
             label_path = osp.join(dataset_path, _label)

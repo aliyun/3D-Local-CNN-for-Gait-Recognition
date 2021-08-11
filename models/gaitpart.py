@@ -231,6 +231,7 @@ class _gaitpart(nn.Module):
 
 
 class GaitPartC(_gaitpart):
+    """ GaitPart model for CASIA """
     def __init__(self, out_channels=256):
         super().__init__()
         self.backbone = FPFE_C()
@@ -242,6 +243,7 @@ class GaitPartC(_gaitpart):
 
 
 class GaitPartO(_gaitpart):
+    """ GaitPart model for OUMVLP """
     def __init__(self, out_channels=256):
         super().__init__()
         self.backbone = FPFE_O()

@@ -16,17 +16,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# plot
-import matplotlib
-matplotlib.use('Agg')
-from matplotlib import pyplot as plt
-import seaborn as sns
-
 from utils import AverageMeter, LearningRate, accuracy, LossWeightDecay
 from solvers import BaselineSolver
 
-class C3D_Solver(BaselineSolver):
 
+class C3D_Solver(BaselineSolver):
     def build_optimizer(self):
         if self.cfg.optimizer == 'SGD':
             self.optimizer_backbone = self._build_sgd(
@@ -36,9 +30,7 @@ class C3D_Solver(BaselineSolver):
                 self.model.module.hpm,
             )
             self.optimizer_top = self._build_sgd(
-                self.model.module.compact_block,
-                self.model.module.classifier
-            )
+                self.model.module.compact_block, self.model.module.classifier)
 
         elif self.cfg.optimizer == 'Adam':
             self.optimizer_backbone = self._build_adam(
@@ -59,7 +51,6 @@ class C3D_Solver(BaselineSolver):
         self.lr_scheduler_top = LearningRate(self.optimizer_top,
                                              **self.cfg.lr_decay_top)
 
-
     def save_checkpoint(self, filename):
         state = {
             'iteration': self.iter,
@@ -76,13 +67,13 @@ class C3D_Solver(BaselineSolver):
         iter = state['iteration']
         self.model.module.load_state_dict(state['model'])
         if optim:
-            self.optimizer_backbone.load_state_dict(state['optimizer_backbone'])
+            self.optimizer_backbone.load_state_dict(
+                state['optimizer_backbone'])
             self.optimizer_top.load_state_dict(state['optimizer_top'])
             self.print_log('Load weights and optim from {}'.format(filename))
         else:
             self.print_log('Load weights from {}'.format(filename))
         return iter
-
 
     def build_loss(self):
         self.criterion_early = self._build_one_loss(self.cfg.early_loss,
@@ -94,7 +85,6 @@ class C3D_Solver(BaselineSolver):
         self.early_loss_weight = LossWeightDecay(**self.cfg.early_loss_weight)
         self.mid_loss_weight = LossWeightDecay(**self.cfg.mid_loss_weight)
         self.late_loss_weight = LossWeightDecay(**self.cfg.late_loss_weight)
-
 
     def train(self):
         self.build_data()
@@ -111,7 +101,8 @@ class C3D_Solver(BaselineSolver):
             len(self.testloader.dataset)))
         if self.cfg.print_model:
             self.print_log('Architecture:\n{}'.format(self.model))
-            num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            num_params = sum(p.numel() for p in self.model.parameters()
+                             if p.requires_grad)
             self.print_log('Parameters: {}'.format(num_params))
         self.print_log('Configurations:\n{}\n'.format(
             json.dumps(vars(self.cfg), indent=4)))
@@ -144,8 +135,8 @@ class C3D_Solver(BaselineSolver):
             early_loss, loss_num = self.criterion_early(out1, label)
             mid_loss, mid_acc = self.criterion_mid(out2, label)
             late_loss = self.criterion_late(preds, label)
-            prec, = accuracy(preds, label, topk=(1,))
-            loss = lw_early*early_loss + lw_mid*mid_loss + lw_late*late_loss
+            prec, = accuracy(preds, label, topk=(1, ))
+            loss = lw_early * early_loss + lw_mid * mid_loss + lw_late * late_loss
 
             # backward
             self.optimizer_top.zero_grad()
@@ -165,23 +156,27 @@ class C3D_Solver(BaselineSolver):
 
             # show log info
             if self.iter % self.cfg.log_interval == 0:
-                self.print_log('Iter: {}/{}'.format(self.iter, self.cfg.num_iter) +
-                               ' - Data: {:.0f}s'.format(meters['dataTime'].sum) +
-                               ' - Model: {:.0f}s'.format(meters['modelTime'].sum) +
-                               ' - Backbone: {:.2e}'.format(lr_backbone) +
-                               ' - Top: {:.2e}'.format(lr_top) +
-                               ' - W_Early: {:.2f}'.format(lw_early) +
-                               ' - W_Mid: {:.2f}'.format(lw_mid) +
-                               ' - W_Late: {:.2f}'.format(lw_late) +
-                               ' - Num: {:.2e}'.format(meters['lossNum'].avg) +
-                               ' - Loss_Mid: {:.2f}'.format(meters['midLoss'].avg) +
-                               ' - Loss_Late: {:.2f}'.format(meters['lateLoss'].avg) +
-                               ' - MidAcc: {:.2%}'.format(meters['midAcc'].avg) +
-                               ' - Acc: {:.2%}'.format(meters['Acc'].avg))
+                self.print_log(
+                    'Iter: {}/{}'.format(self.iter, self.cfg.num_iter) +
+                    ' - Data: {:.0f}s'.format(meters['dataTime'].sum) +
+                    ' - Model: {:.0f}s'.format(meters['modelTime'].sum) +
+                    ' - Backbone: {:.2e}'.format(lr_backbone) +
+                    ' - Top: {:.2e}'.format(lr_top) +
+                    ' - W_Early: {:.2f}'.format(lw_early) +
+                    ' - W_Mid: {:.2f}'.format(lw_mid) +
+                    ' - W_Late: {:.2f}'.format(lw_late) +
+                    ' - Num: {:.2e}'.format(meters['lossNum'].avg) +
+                    ' - Loss_Mid: {:.2f}'.format(meters['midLoss'].avg) +
+                    ' - Loss_Late: {:.2f}'.format(meters['lateLoss'].avg) +
+                    ' - MidAcc: {:.2%}'.format(meters['midAcc'].avg) +
+                    ' - Acc: {:.2%}'.format(meters['Acc'].avg))
 
-                for i in ['earlyLoss', 'lossNum', 'midLoss', 'lateLoss',
-                          'midAcc', 'Acc']:
-                    self.writer.add_scalar('train/{}'.format(i), meters[i].avg, self.iter)
+                for i in [
+                        'earlyLoss', 'lossNum', 'midLoss', 'lateLoss',
+                        'midAcc', 'Acc'
+                ]:
+                    self.writer.add_scalar('train/{}'.format(i), meters[i].avg,
+                                           self.iter)
 
                 for m in meters.values():
                     m.reset()
@@ -202,7 +197,8 @@ class C3D_Solver(BaselineSolver):
                                '\nIter: {}'.format(self.best_iter) +
                                '\nDir: {}'.format(self.work_dir) +
                                '\nTime: {}'.format(
-                                   self._convert_time(time.time() - start_time)))
+                                   self._convert_time(time.time() -
+                                                      start_time)))
                 return
             end = time.time()
 
@@ -228,39 +224,71 @@ class C3D_Solver(BaselineSolver):
             label_list.append(label.item())
 
         self.print_log('Full Euclidean')
-        acc_full_euc = self._compute_accuracy(feature_list1, view_list, seq_type_list,
-                                              label_list, metric='euclidean')
+        acc_full_euc = self._compute_accuracy(feature_list1,
+                                              view_list,
+                                              seq_type_list,
+                                              label_list,
+                                              metric='euclidean')
         self.print_log('Compact Euclidean')
-        acc_compact_euc = self._compute_accuracy(feature_list2, view_list, seq_type_list,
-                                                 label_list, metric='euclidean')
+        acc_compact_euc = self._compute_accuracy(feature_list2,
+                                                 view_list,
+                                                 seq_type_list,
+                                                 label_list,
+                                                 metric='euclidean')
         self.print_log('Full Cosine')
-        acc_full_cos = self._compute_accuracy(feature_list1, view_list, seq_type_list,
-                                              label_list, metric='cosine')
+        acc_full_cos = self._compute_accuracy(feature_list1,
+                                              view_list,
+                                              seq_type_list,
+                                              label_list,
+                                              metric='cosine')
         self.print_log('Compact Cosine')
-        acc_compact_cos = self._compute_accuracy(feature_list2, view_list, seq_type_list,
-                                                 label_list, metric='cosine')
+        acc_compact_cos = self._compute_accuracy(feature_list2,
+                                                 view_list,
+                                                 seq_type_list,
+                                                 label_list,
+                                                 metric='cosine')
 
         if len(acc_compact_euc) > 1:
-            self.writer.add_scalar('test_fullEuc/AccNM', acc_full_euc[0], self.iter)
-            self.writer.add_scalar('test_fullEuc/AccBG', acc_full_euc[1], self.iter)
-            self.writer.add_scalar('test_fullEuc/AccCL', acc_full_euc[2], self.iter)
-            self.writer.add_scalar('test_compactEuc/AccNM', acc_compact_euc[0], self.iter)
-            self.writer.add_scalar('test_compactEuc/AccBG', acc_compact_euc[1], self.iter)
-            self.writer.add_scalar('test_compactEuc/AccCL', acc_compact_euc[2], self.iter)
-            self.writer.add_scalar('test_fullCos/AccNM', acc_full_cos[0], self.iter)
-            self.writer.add_scalar('test_fullCos/AccBG', acc_full_cos[1], self.iter)
-            self.writer.add_scalar('test_fullCos/AccCL', acc_full_cos[2], self.iter)
-            self.writer.add_scalar('test_compactCos/AccNM', acc_compact_cos[0], self.iter)
-            self.writer.add_scalar('test_compactCos/AccBG', acc_compact_cos[1], self.iter)
-            self.writer.add_scalar('test_compactCos/AccCL', acc_compact_cos[2], self.iter)
+            self.writer.add_scalar('test_fullEuc/AccNM', acc_full_euc[0],
+                                   self.iter)
+            self.writer.add_scalar('test_fullEuc/AccBG', acc_full_euc[1],
+                                   self.iter)
+            self.writer.add_scalar('test_fullEuc/AccCL', acc_full_euc[2],
+                                   self.iter)
+            self.writer.add_scalar('test_compactEuc/AccNM', acc_compact_euc[0],
+                                   self.iter)
+            self.writer.add_scalar('test_compactEuc/AccBG', acc_compact_euc[1],
+                                   self.iter)
+            self.writer.add_scalar('test_compactEuc/AccCL', acc_compact_euc[2],
+                                   self.iter)
+            self.writer.add_scalar('test_fullCos/AccNM', acc_full_cos[0],
+                                   self.iter)
+            self.writer.add_scalar('test_fullCos/AccBG', acc_full_cos[1],
+                                   self.iter)
+            self.writer.add_scalar('test_fullCos/AccCL', acc_full_cos[2],
+                                   self.iter)
+            self.writer.add_scalar('test_compactCos/AccNM', acc_compact_cos[0],
+                                   self.iter)
+            self.writer.add_scalar('test_compactCos/AccBG', acc_compact_cos[1],
+                                   self.iter)
+            self.writer.add_scalar('test_compactCos/AccCL', acc_compact_cos[2],
+                                   self.iter)
         else:
-            self.writer.add_scalar('test/fullEucAcc', acc_full_euc[0], self.iter)
-            self.writer.add_scalar('test/compactEucAcc', acc_compact_euc[0], self.iter)
-            self.writer.add_scalar('test/fullCosAcc', acc_full_cos[0], self.iter)
-            self.writer.add_scalar('test/compactCosAcc', acc_compact_cos[0], self.iter)
+            self.writer.add_scalar('test/fullEucAcc', acc_full_euc[0],
+                                   self.iter)
+            self.writer.add_scalar('test/compactEucAcc', acc_compact_euc[0],
+                                   self.iter)
+            self.writer.add_scalar('test/fullCosAcc', acc_full_cos[0],
+                                   self.iter)
+            self.writer.add_scalar('test/compactCosAcc', acc_compact_cos[0],
+                                   self.iter)
         target_acc = getattr(self.cfg, 'target_acc', 'full_euc')
-        accs = {'full_euc': acc_full_euc, 'full_cos': acc_full_cos,
-                'compact_euc': acc_compact_euc, 'compact_cos': acc_compact_cos}
+        accs = {
+            'full_euc': acc_full_euc,
+            'full_cos': acc_full_cos,
+            'compact_euc': acc_compact_euc,
+            'compact_cos': acc_compact_cos
+        }
         return accs[target_acc]
 
     def all_test(self):
@@ -291,14 +319,26 @@ class C3D_Solver(BaselineSolver):
             label_list.append(label.item())
 
         self.print_log('Full Euclidean')
-        acc1 = self._compute_accuracy(feature_list1, view_list, seq_type_list,
-                                      label_list, metric='euclidean')
+        acc1 = self._compute_accuracy(feature_list1,
+                                      view_list,
+                                      seq_type_list,
+                                      label_list,
+                                      metric='euclidean')
         self.print_log('Compact Euclidean')
-        acc2 = self._compute_accuracy(feature_list2, view_list, seq_type_list,
-                                      label_list, metric='euclidean')
+        acc2 = self._compute_accuracy(feature_list2,
+                                      view_list,
+                                      seq_type_list,
+                                      label_list,
+                                      metric='euclidean')
         self.print_log('Full Cosine')
-        acc3 = self._compute_accuracy(feature_list1, view_list, seq_type_list,
-                                      label_list, metric='cosine')
+        acc3 = self._compute_accuracy(feature_list1,
+                                      view_list,
+                                      seq_type_list,
+                                      label_list,
+                                      metric='cosine')
         self.print_log('Compact Cosine')
-        acc4 = self._compute_accuracy(feature_list2, view_list, seq_type_list,
-                                      label_list, metric='cosine')
+        acc4 = self._compute_accuracy(feature_list2,
+                                      view_list,
+                                      seq_type_list,
+                                      label_list,
+                                      metric='cosine')

@@ -1,4 +1,3 @@
-import pdb
 import torch
 import numpy as np
 import torch.nn as nn
@@ -46,7 +45,161 @@ class FBackbone(Backbone):
         self.layer6 = FConv(128, 128, 3, 1, p=8)
 
 
+class LocalBranch(nn.Module):
+    """ Local branch for a specifed human part
+
+    Parameters
+    ----------
+    human_part : str
+        name of human part, within ('head', 'torso', 'armL', 'armR', 'legL', legR')
+    locator : str
+        name of localization module
+    sampler : str
+        name of sampling module
+    extractor : str
+        name of feature extraction module
+    param_channels : int
+        number of the input channels of the localization module
+    in_channels : int
+        number of input channels
+    out_channels : int
+        number of the output channels
+    reverse : bool
+        whether use the reverse-transform
+    """
+    _in_out_hw = {
+        # (in_h, in_w, out_h, out_w)
+        'head': (2, 4, 16, 11),
+        'torso': (8, 10, 16, 11),
+        'armL': (3, 3, 16, 11),
+        'armR': (3, 3, 16, 11),
+        'legL': (6, 5, 16, 11),
+        'legR': (6, 5, 16, 11)
+    }
+    _offsets = {
+        # (dt, dx, dy, sigma_t, sigma, delta_t, delta)
+        'head': (0.5, 0.5, 1.0 / 16, 0.3, 0.1, 0.4, 4.0 / 11),
+        'torso': (0.5, 0.5, 3.0 / 8, 0.3, 0.1, 0.4, 10.0 / 11),
+        'armL': (0.5, 0.3, 0.5, 0.3, 0.1, 0.4, 3.0 / 11),
+        'armR': (0.5, 0.7, 0.5, 0.3, 0.1, 0.4, 3.0 / 11),
+        'legL': (0.5, 0.3, 0.8, 0.3, 0.1, 0.4, 5.0 / 11),
+        'legR': (0.5, 0.7, 0.8, 0.3, 0.1, 0.4, 5.0 / 11),
+    }
+
+    def __init__(self,
+                 human_part,
+                 locator,
+                 sampler,
+                 extractor,
+                 param_channels,
+                 in_channels,
+                 out_channels,
+                 reverse=False):
+        super().__init__()
+        self.localization = locator(param_channels, param_channels // 2, 7)
+        self.feature_extraction = extractor(in_channels, out_channels)
+
+        in_h, in_w, out_h, out_w = self._in_out_hw[human_part]
+        dt, dx, dy, sigma_t, sigma, delta_t, delta = self._offsets[human_part]
+        self.sampler = sampler(in_channels,
+                               out_channels,
+                               out_h,
+                               out_w,
+                               in_h,
+                               in_w,
+                               dt,
+                               dx,
+                               dy,
+                               sigma_t,
+                               sigma,
+                               delta_t,
+                               delta,
+                               reverse=reverse)
+
+    def forward(self, x, param_x):
+        loc_params = self.localization(param_x)
+        sampled_feature = self.sampler(x, loc_params)
+        out = self.feature_extraction(sampled_feature)
+        return out
+
+
+class LocalBlock3D(nn.Module):
+    def __init__(self,
+                 locator,
+                 sampler,
+                 extractor,
+                 param_channels,
+                 in_channels,
+                 local_channels,
+                 out_channels,
+                 reverse=False):
+        super().__init__()
+        self.head = LocalBranch('head', locator, sampler, extractor,
+                                param_channels, in_channels, local_channels,
+                                reverse)
+        self.torso = LocalBranch('torso', locator, sampler, extractor,
+                                 param_channels, in_channels, local_channels,
+                                 reverse)
+        self.armL = LocalBranch('armL', locator, sampler, extractor,
+                                param_channels, in_channels, local_channels,
+                                reverse)
+        self.armR = LocalBranch('armR', locator, sampler, extractor,
+                                param_channels, in_channels, local_channels,
+                                reverse)
+        self.legL = LocalBranch('legL', locator, sampler, extractor,
+                                param_channels, in_channels, local_channels,
+                                reverse)
+        self.legR = LocalBranch('legR', locator, sampler, extractor,
+                                param_channels, in_channels, local_channels,
+                                reverse)
+
+        self.feature_fusion = nn.Sequential(
+            nn.Conv3d(local_channels * 6 + out_channels,
+                      out_channels,
+                      kernel_size=1,
+                      bias=False),
+            # nn.BatchNorm3d(128),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x, param_x):
+        head = self.head(x, param_x.detach())
+        torso = self.torso(x, param_x.detach())
+        armL = self.armL(x, param_x.detach())
+        armR = self.armR(x, param_x.detach())
+        legL = self.legL(x, param_x.detach())
+        legR = self.legR(x, param_x.detach())
+        out = torch.cat([param_x, head, torso, armL, armR, legL, legR], dim=1)
+        out = self.feature_fusion(out)
+        return out
+
+
 class LocalCNN3D(nn.Module):
+    """ 3D Local Convolutional Neural Networks for Gait Recognition
+
+    Parameters
+    ----------
+    backbone : str
+        type of backbone. 'basic' is regular Conv2d, 'fconv' is the backbone from GaitPart.
+    locator : str
+        type of localization module
+    sampler : str
+        type of sampler. 'gaussian', 'trilinear' or 'mixture'.
+    extractor : str
+        type of feature extraction module in 3DLocalBlock.
+    num_classes : int
+        number of classes/identities for softmax loss training.
+    out_features : int
+        length of output features
+    fs_weight_init_eye : bool
+        whether the feature fusion module's weights are initialized with eye-matrix
+    
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
     _backbones = {'basic': Backbone, 'fconv': FBackbone}
     _locators = {'3d': Localization3D}
     _samplers = {
@@ -59,20 +212,17 @@ class LocalCNN3D(nn.Module):
     def __init__(self,
                  backbone='basic',
                  locator='3d',
-                 sampler='trilinear',
+                 sampler='mix',
                  extractor='c3d',
                  num_classes=73,
                  out_features=256,
                  local_channels=64,
                  local_stripes=1,
                  dropout=0.9,
-                 sigma_t=0.3,
-                 sigma=0.1,
-                 delta_t=0.4,
-                 inverse=False,
+                 reverse=False,
                  load_baseline=None,
                  load_top=False,
-                 fusion_eye=False,
+                 fs_weight_init_eye=False,
                  **kwargs):
         super().__init__()
         self.local_channels = local_channels
@@ -84,43 +234,14 @@ class LocalCNN3D(nn.Module):
         self.backbone = backbone()
 
         # local branches
-        self.local = nn.ModuleDict({
-            'head':
-            sampler(extractor, 64, local_channels, 16, 11, 2, 4, 0.5, 0.5,
-                    1.0 / 16, sigma_t, sigma, delta_t, 4.0 / 11, inverse),
-            'torso':
-            sampler(extractor, 64, local_channels, 16, 11, 8, 10, 0.5, 0.5,
-                    3.0 / 8, sigma_t, sigma, delta_t, 10.0 / 11, inverse),
-            'armL':
-            sampler(extractor, 64, local_channels, 16, 11, 3, 3, 0.5, 0.3, 0.5,
-                    sigma_t, sigma, delta_t, 3.0 / 11, inverse),
-            'armR':
-            sampler(extractor, 64, local_channels, 16, 11, 3, 3, 0.5, 0.7, 0.5,
-                    sigma_t, sigma, delta_t, 3.0 / 11, inverse),
-            'legL':
-            sampler(extractor, 64, local_channels, 16, 11, 6, 5, 0.5, 0.3, 0.8,
-                    sigma_t, sigma, delta_t, 5.0 / 11, inverse),
-            'legR':
-            sampler(extractor, 64, local_channels, 16, 11, 6, 5, 0.5, 0.7, 0.8,
-                    sigma_t, sigma, delta_t, 5.0 / 11, inverse),
-            'feature_fusion':
-            nn.Sequential(
-                nn.Conv3d(local_channels * 6 + 128,
-                          128,
-                          kernel_size=1,
-                          bias=False),
-                # nn.BatchNorm3d(128),
-                nn.ReLU(inplace=True),
-            ),
-            'spatial_pool':
-            HP(p=local_stripes),
-            'temporal_pool':
-            MCM(channels=local_channels,
-                num_part=6 * local_stripes,
-                squeeze_ratio=2),
-            'hpm':
-            SeparateFc(6 * local_stripes, local_channels, out_features),
-        })
+        self.local = LocalBlock3D(locator,
+                                  sampler,
+                                  extractor,
+                                  128,
+                                  64,
+                                  local_channels,
+                                  128,
+                                  reverse=reverse)
 
         self.spatial_pool = HP(p=16)
         self.temporal_pool = MCM(channels=128, num_part=16, squeeze_ratio=4)
@@ -135,7 +256,7 @@ class LocalCNN3D(nn.Module):
             self.load_from_baseline(state_dict, load_top)
             print('Load baseline weights from {}'.format(load_baseline))
 
-            if fusion_eye:
+            if fs_weight_init_eye:
                 # make sure backbone.feature_fusion weights is initialized well
                 weight = self.local['feature_fusion'][0].weight
                 out_c = weight.shape[0]
@@ -159,7 +280,7 @@ class LocalCNN3D(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
     def forward(self, silho):
-        r""" N: batch size
+        """ N: batch size
              T: num of frames
              C: channels
              H: height
@@ -178,43 +299,14 @@ class LocalCNN3D(nn.Module):
         feat6_5d = feat6.view(N, T,
                               *feat6.size()[1:]).permute(0, 2, 1, 3,
                                                          4).contiguous()
-        """ Local Branches (head, torso, armL, armR, legL, legR) """
-        feat_head = self.local['head'](feat4_5d)
-        feat_torso = self.local['torso'](feat4_5d)
-        feat_armL = self.local['armL'](feat4_5d)
-        feat_armR = self.local['armR'](feat4_5d)
-        feat_legL = self.local['legL'](feat4_5d)
-        feat_legR = self.local['legR'](feat4_5d)
-        """ Global """
-        features = [
-            feat6_5d, feat_head, feat_armL, feat_armR, feat_torso, feat_legL,
-            feat_legR
-        ]
-        gl = torch.cat(features, dim=1)
-        gl = self.local['feature_fusion'](gl)
+        gl = self.local(feat4_5d, feat6_5d)
         # [N, C, T, H, W] -> [N, C, T, M]
         gl = self.spatial_pool(gl)
         # [N, C, T, M] -> [N, M, C]
         gl = self.temporal_pool(gl)
         gl = self.hpm(gl)
 
-        # N, C, T, H, W -> N, C, T, M
-        out_head = self.local['spatial_pool'](feat_head)
-        out_torso = self.local['spatial_pool'](feat_torso)
-        out_armL = self.local['spatial_pool'](feat_armL)
-        out_armR = self.local['spatial_pool'](feat_armR)
-        out_legL = self.local['spatial_pool'](feat_legL)
-        out_legR = self.local['spatial_pool'](feat_legR)
-        out_local = torch.cat(
-            [out_head, out_torso, out_armL, out_armR, out_legL, out_legR],
-            dim=-1)
-        # N, C, T, M -> N, M, C
-        out_local = self.local['temporal_pool'](out_local)
-        out_local = self.local['hpm'](out_local)
-
-        out_full = torch.cat([gl, out_local], dim=1)
-
-        return gl, out_local, features
+        return gl
 
     def load_from_baseline(self, state_dict, load_top=False):
         for name, param in self.named_parameters():

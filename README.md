@@ -12,11 +12,34 @@ where 3D local CNN consistently outperforms state-of-the-art models. We hope
 this work will shed light on more research on introducing simple but effective
 local operations as submodules of existing convolutional building blocks.
 
-### Run environment
+### Installation Instructions
+- Clone this repo:
 
-+ Python 3.7
-+ Python bindings for OpenCV
-+ Pytorch 1.1
+```bash
+git clone git@github.com:aliyun/3D-Local-Convolutional-Neural-Networks-for-Gait-Recognition.git
+cd 3D-Local-Convolutional-Neural-Networks-for-Gait-Recognition
+```
+
+- Create a conda virtual environment and activate it:
+
+```bash
+conda create -n 3DLocalCNN python=3.6.4 -y
+conda activate 3DLocalCNN
+```
+
+- Install `CUDA==10.2` with `cudnn7` following
+  the [official installation instructions](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)
+- Install `PyTorch==1.7.1` and `torchvision==0.8.2` with `CUDA==10.2`:
+
+```bash
+conda install pytorch==1.7.1 torchvision==0.8.2 cudatoolkit=10.2 -c pytorch
+```
+
+- Install `numpy==1.16.4, yaml, tensorboard, pyyaml, scikit-learn, opencv-python, imageio, matplotlib, seaborn, xarray`:
+
+```bash
+pip3 install numpy==1.16.4, yaml, tensorboard, pyyaml, scikit-learn, opencv-python, imageio, matplotlib, seaborn, xarray
+```
 
 ### Usage
 #### Data preprocess
@@ -24,25 +47,18 @@ local operations as submodules of existing convolutional building blocks.
  Download CASAI raw data to data/CASIA_raw and run `python preprocess.py`
 
 #### Demo
-(1) basic run, for all gpus
+(1) To train GaitSet from scratch, run
+```
+python main.py --config=configs/GaitSet_CASIA.yaml
+```
+(2) To train GaitPart from scratch, run
+```
+python main.py --config=configs/GaitPart_CASIA.yaml
+```
+(3) To train 3DLocalCNN from scratch, run
 ```
 python main.py --config=configs/3DLocalCNN_CASIA.yaml
 ```
-(2) for 1 gpu, add `CUDA_VISIBLE_DEVICES=1`. e.g.
-```
-CUDA_VISIBLE_DEVICES=1 python main.py --config=configs/3DLocalCNN_CASIA.yaml
-```
-(3) for deterministic set seed, e.g. 1234
-```
-python main.py --seed=1234 --config=configs/3DLocalCNN_CASIA.yaml
-```
-
-(4) add name, save log dir as 'name_time', e.g.
-```
-python main.py --seed=1234 --config=configs/3DLocalCNN_CASIA.yaml --name=sgd
-```
-
-(end) for nohup run, see  nohup_run.sh.example
 
 ### License
 + Apache License 2.0

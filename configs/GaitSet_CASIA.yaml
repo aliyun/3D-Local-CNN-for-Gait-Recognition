@@ -7,7 +7,7 @@ save_interval: 1000
 test_interval: 1000
 
 # data
-dataset: CASIA
+dataset: FastCASIA
 dataset_args:
     batch_size: [8, 16]
     num_workers: 3
