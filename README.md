@@ -16,8 +16,8 @@ local operations as submodules of existing convolutional building blocks.
 - Clone this repo:
 
 ```bash
-git clone git@github.com:aliyun/3D-Local-Convolutional-Neural-Networks-for-Gait-Recognition.git
-cd 3D-Local-Convolutional-Neural-Networks-for-Gait-Recognition
+git clone git@github.com:aliyun/3D-Local-CNN-for-Gait-Recognition.git
+cd 3D-Local-CNN-for-Gait-Recognition
 ```
 
 - Create a conda virtual environment and activate it:
