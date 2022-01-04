@@ -2,6 +2,7 @@ solvers/__pycache__
 utils/__pycache__
 models/__pycache__
 datasets/__pycache__
+losses/__pycache__
 datasets/utils/__pycache__
 
 .mypy.ini
