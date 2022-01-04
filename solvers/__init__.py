@@ -7,3 +7,5 @@ from .pretreatment import PretreatmentC, PretreatmentO
 # C3D
 from .c3d import C3D_Solver
 from .local import Local3dSolver
+
+from .gif import Visualization

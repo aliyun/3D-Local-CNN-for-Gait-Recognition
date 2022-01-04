@@ -13,7 +13,7 @@ dataset_args:
     num_workers: 3
 
 # model
-model: LocalCNN3D
+model: LocalCNN3D_ST
 
 # loss
 loss: FullTripletLoss
