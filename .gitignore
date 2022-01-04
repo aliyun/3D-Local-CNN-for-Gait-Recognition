@@ -5,5 +5,6 @@ datasets/__pycache__
 datasets/utils/__pycache__
 
 .mypy.ini
+.vscode/
 data
 exps/
